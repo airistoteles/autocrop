@@ -1,37 +1,34 @@
 import cv2
 import numpy as np
-import sys
 import argparse
-import os
-import glob
+import os, glob, pathlib
+from multiprocessing import Pool
 
 def order_rect(points):
-    # initialzie a list of coordinates that will be ordered
-    # such that the first entry in the list is the top-left,
-    # the second entry is the top-right, the third is the
-    # bottom-right, and the fourth is the bottom-left
-    rect = np.zeros((4, 2), dtype=np.float32)    
+    # idea: https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
+    # initialize result -> rectangle coordinates (4 corners, 2 coordinates (x,y))
+    res = np.zeros((4, 2), dtype=np.float32)    
 
-    # the top-left point will have the smallest sum, whereas
-    # the bottom-right point will have the largest sum
-    s = points.sum(axis = 1)
-    rect[0] = points[np.argmin(s)]
-    rect[2] = points[np.argmax(s)]
+    # top-left corner: smallest sum
+    # top-right corner: smallest difference
+    # bottom-right corner: largest sum
+    # bottom-left corner: largest difference
 
-    # now, compute the difference between the points, the
-    # top-right point will have the smallest difference,
-    # whereas the bottom-left will have the largest difference
-    diff = np.diff(points, axis = 1)
-    rect[1] = points[np.argmin(diff)]
-    rect[3] = points[np.argmax(diff)]
+    s = np.sum(points, axis = 1)    
+    d = np.diff(points, axis = 1)
 
-    # return the ordered coordinates
-    return rect
+    res[0] = points[np.argmin(s)]
+    res[1] = points[np.argmin(d)]
+    res[2] = points[np.argmax(s)]
+    res[3] = points[np.argmax(d)]
 
-def four_point_transform(img, pts):
+    return res
+
+def four_point_transform(img, points):    
+    # copied from: https://www.pyimagesearch.com/2014/08/25/4-point-opencv-getperspective-transform-example/
     # obtain a consistent order of the points and unpack them
     # individually
-    rect = order_rect(pts)
+    rect = order_rect(points)
     (tl, tr, br, bl) = rect
 
     # compute the width of the new image, which will be the
@@ -68,7 +65,8 @@ def cont(img, gray, thresh, crop):
 
     im_h, im_w = img.shape[:2]
     while found == False: # repeat to find the right threshold value for finding a rectangle
-        if thresh == 256 or thresh == 0 or loop: # maximum threshold value, minimum threshold value or loop detected (alternating between 2 threshold values 
+        if thresh == 256 or thresh == 0 or loop: # maximum threshold value, minimum threshold value 
+                                                 # or loop detected (alternating between 2 threshold values 
                                                  # without finding borders            
             break # stop if no borders could be detected
 
@@ -116,11 +114,16 @@ def cont(img, gray, thresh, crop):
 
 def get_name(filename):
     f_reversed = filename[::-1]
-    index = -1 * f_reversed.find('/') # TODO: only works under linux/macos, windows users would have to use 'C:/' insead of 'C:\' 
+    index = -1 * f_reversed.find('/')  
 
     return filename[index:]
 
-def autocrop(thresh, crop, filename, out_path):
+def autocrop(params):
+    thresh = params['thresh']
+    crop = params['crop']
+    filename = params['filename']
+    out_path = params['out_path']
+
     print(f"Opening: {filename}")
     name = get_name(filename) # only the part after the folder
     img = cv2.imread(filename)
@@ -134,7 +137,8 @@ def autocrop(thresh, crop, filename, out_path):
 
     if found:
         print(f"Saveing to: {out_path}/crop_{name}")
-        cv2.imwrite(f"{out_path}/crop_{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) # TODO: this is always writing JPEG, no matter what was the input file type, can we detect this?
+        cv2.imwrite(f"{out_path}/crop_{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) 
+        # TODO: this is always writing JPEG, no matter what was the input file type, can we detect this?
 
     else:
         # if no contours were found, write input file to "failed" folder
@@ -157,17 +161,25 @@ def main():
     parser.add_argument("-o", metavar="OUTPUT_PATH", default="crop/",
                         help="Output path. Specify the folder name to which processed images will be written.")
     parser.add_argument("-t", metavar="THRESHOLD", type=int, default=200,
-                        help="Threshold value. Higher values represent less aggressive contour search. If it's chosen to high, a white border will be introduced")
+                        help="Threshold value. Higher values represent less aggressive contour search. \
+                                If it's chosen to high, a white border will be introduced")
     parser.add_argument("-c", metavar="CROP", type=int, default=15,
-                        help="Standard extra crop. After crop/rotate often a small white border remains. This removes this. If it cuts off too much of your image, adjust this.")
+                        help="Standard extra crop. After crop/rotate often a small white border remains. \
+                                This removes this. If it cuts off too much of your image, adjust this.")
+    parser.add_argument("-p", metavar="THREADS", type=int, default=None,
+                        help="Specify the number of threads to be used to process the images in parallel. \
+                                If not provided, the script will try to find the value itself \
+                                (which doesn't work on Windows or MacOS -> defaults to 1 thread only).")
     parser.add_argument("-s", "--single", action="store_true",
                         help="Process single image. i.e.: -i img.jpg -o crop/")
     args = parser.parse_args()
-    
-    in_path = args.i
-    out_path = args.o
+
+    in_path = pathlib.PureWindowsPath(args.i).as_posix() # since windows understands posix too: let's convert it to a posix path.
+                                                         # (works on all systems and conveniently also removes additional '/' on posix systems)
+    out_path = pathlib.PureWindowsPath(args.o).as_posix()
     thresh = args.t
     crop = args.c
+    num_threads = args.p
     single = args.single
 
     if not os.path.exists(out_path):
@@ -189,8 +201,24 @@ def main():
     if len(files) == 0:
         print(f"No image files found in {in_path}\n Exiting.")
     else:
+        if num_threads == None:
+            try:
+                num_threads = len(os.sched_getaffinity(0))
+                print(f"Using {num_threads} threads.")
+            except:
+                print("Automatic thread detection didn't work. Defaulting to 1 thread only. \
+                        Please specify the correct number manually via the '-p' argument.")
+                num_threads = 1
+        
+        params = []
         for f in files:
-            autocrop(thresh, crop, f, out_path)
+            params.append({"thresh": thresh, 
+                            "crop": crop, 
+                            "filename": f, 
+                            "out_path": out_path})
+
+        with Pool(num_threads) as p:
+            results = p.map(autocrop, params)
 
 if __name__ == "__main__":
     main()
