@@ -162,7 +162,7 @@ def main():
                         help="Output path. Specify the folder name to which processed images will be written.")
     parser.add_argument("-t", metavar="THRESHOLD", type=int, default=200,
                         help="Threshold value. Higher values represent less aggressive contour search. \
-                                If it's chosen to high, a white border will be introduced")
+                                If it's chosen too high, a white border will be introduced")
     parser.add_argument("-c", metavar="CROP", type=int, default=15,
                         help="Standard extra crop. After crop/rotate often a small white border remains. \
                                 This removes this. If it cuts off too much of your image, adjust this.")
