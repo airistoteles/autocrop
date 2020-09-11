@@ -21,7 +21,6 @@ This creates a new folder `crop` where all cropped and rotated images will be sa
 ### Additional options
 `python autocrop.py [-h] [-i INPUT_PATH] [-o OUTPUT_PATH] [-t THRESHOLD] [-c CROP] [-p THREADS] [-s]`
 
-#### optional arguments:
 |Argument| Description|
 |:--|:--|
 |`-h, --help`| Show this help message and exit.|
