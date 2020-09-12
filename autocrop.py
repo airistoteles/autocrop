@@ -57,7 +57,7 @@ def four_point_transform(img, points):
     # return the warped image
     return warped
 
-def cont(img, gray, thresh, crop):
+def cont(img, gray, user_thresh, crop):
     found = False
     loop = False
     old_val = 0 # thresh value from 2 iterations ago
@@ -65,14 +65,13 @@ def cont(img, gray, thresh, crop):
 
     im_h, im_w = img.shape[:2]
     while found == False: # repeat to find the right threshold value for finding a rectangle
-        if thresh == 256 or thresh == 0 or loop: # maximum threshold value, minimum threshold value 
+        if user_thresh == 256 or user_thresh == 0 or loop: # maximum threshold value, minimum threshold value 
                                                  # or loop detected (alternating between 2 threshold values 
                                                  # without finding borders            
-            break # stop if no borders could be detected
+            found = True # stop if no borders could be detected
 
-        ret, thresh = cv2.threshold(gray, thresh, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(gray, user_thresh, 255, cv2.THRESH_BINARY)
         contours = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)[0]        
-        
         im_area = im_w * im_h
         
         for cnt in contours:
@@ -84,15 +83,16 @@ def cont(img, gray, thresh, crop):
                 if len(approx) == 4:
                     found = True
                 elif len(approx) > 4:
-                    thresh -= 1
-                    print(f"Adjust Threshold: {thresh}")
-                    if thresh == old_val + 1:
+                    user_thresh = user_thresh - 1
+                    print(f"Adjust Threshold: {user_thresh}")
+                    if user_thresh == old_val + 1:
                         loop = True
                     break
                 elif len(approx) < 4:
-                    thresh += 5
-                    print(f"Adjust Threshold: {thresh}")
-                    if thresh == old_val - 5:
+                    user_thresh = user_thresh + 5
+                    print(user_thresh)
+                    print(f"Adjust Threshold: {user_thresh}")
+                    if user_thresh == old_val - 5:
                         loop = True
                     break
 
@@ -108,7 +108,7 @@ def cont(img, gray, thresh, crop):
 
         i += 1
         if i%2 == 0:
-            old_value = thresh
+            old_value = user_thresh
 
     return found, img
 
@@ -137,7 +137,10 @@ def autocrop(params):
 
     if found:
         print(f"Saveing to: {out_path}/crop_{name}")
-        cv2.imwrite(f"{out_path}/crop_{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) 
+        try:
+            cv2.imwrite(f"{out_path}/crop_{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) 
+        except:
+            None
         # TODO: this is always writing JPEG, no matter what was the input file type, can we detect this?
 
     else:
@@ -175,8 +178,8 @@ def main():
     args = parser.parse_args()
 
     in_path = pathlib.PureWindowsPath(args.i).as_posix() # since windows understands posix too: let's convert it to a posix path.
-                                                         # (works on all systems and conveniently also removes additional '/' on posix systems)
-    out_path = pathlib.PureWindowsPath(args.o).as_posix()
+    out_path = pathlib.PureWindowsPath(args.o).as_posix() # (works on all systems and conveniently also removes additional '/' on posix systems)
+
     thresh = args.t
     crop = args.c
     num_threads = args.p
