@@ -65,10 +65,10 @@ def cont(img, gray, user_thresh, crop):
 
     im_h, im_w = img.shape[:2]
     while found == False: # repeat to find the right threshold value for finding a rectangle
-        if user_thresh == 256 or user_thresh == 0 or loop: # maximum threshold value, minimum threshold value 
+        if user_thresh >= 255 or user_thresh == 0 or loop: # maximum threshold value, minimum threshold value 
                                                  # or loop detected (alternating between 2 threshold values 
                                                  # without finding borders            
-            found = True # stop if no borders could be detected
+            break # stop if no borders could be detected
 
         ret, thresh = cv2.threshold(gray, user_thresh, 255, cv2.THRESH_BINARY)
         contours = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)[0]        
@@ -114,7 +114,7 @@ def cont(img, gray, user_thresh, crop):
 
 def get_name(filename):
     f_reversed = filename[::-1]
-    index = -1 * f_reversed.find('/')  
+    index = -1 * f_reversed.find('/') - 1
 
     return filename[index:]
 
