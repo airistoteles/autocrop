@@ -76,7 +76,7 @@ def cont(img, gray, user_thresh, crop):
         
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area > (im_area/6) and area < (im_area/1.01):
+            if area > (im_area/100) and area < (im_area/1.01):
                 epsilon = 0.1 * cv2.arcLength(cnt,True)
                 approx = cv2.approxPolyDP(cnt,epsilon,True)
 
@@ -90,7 +90,6 @@ def cont(img, gray, user_thresh, crop):
                     break
                 elif len(approx) < 4:
                     user_thresh = user_thresh + 5
-                    print(user_thresh)
                     print(f"Adjust Threshold: {user_thresh}")
                     if user_thresh == old_val - 5:
                         loop = True
@@ -105,7 +104,16 @@ def cont(img, gray, user_thresh, crop):
                 dst = four_point_transform(img, rect)
                 dst_h, dst_w = dst.shape[:2]
                 img = dst[crop:dst_h-crop, crop:dst_w-crop]
-
+            else:
+                if i > 100:
+                    # if this happens a lot, increase the threshold, maybe it helps, otherwise just stop
+                    user_thresh = user_thresh + 5
+                    if user_thresh > 255:
+                        break
+                    print(f"Adjust Threshold: {user_thresh}")
+                    print("WARNING: This seems to be an edge case. If the result isn't satisfying try lowering the threshold using -t"
+                    if user_thresh == old_val - 5:
+                        loop = True                
         i += 1
         if i%2 == 0:
             old_value = user_thresh
@@ -136,9 +144,9 @@ def autocrop(params):
     found, img = cont(img, gray, thresh, crop)
 
     if found:
-        print(f"Saveing to: {out_path}/crop_{name}")
+        print(f"Saveing to: {out_path}/{name}")
         try:
-            cv2.imwrite(f"{out_path}/crop_{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) 
+            cv2.imwrite(f"{out_path}/{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) 
         except:
             None
         # TODO: this is always writing JPEG, no matter what was the input file type, can we detect this?
