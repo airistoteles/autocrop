@@ -111,7 +111,7 @@ def cont(img, gray, user_thresh, crop):
                     if user_thresh > 255:
                         break
                     print(f"Adjust Threshold: {user_thresh}")
-                    print("WARNING: This seems to be an edge case. If the result isn't satisfying try lowering the threshold using -t"
+                    print("WARNING: This seems to be an edge case. If the result isn't satisfying try lowering the threshold using -t")
                     if user_thresh == old_val - 5:
                         loop = True                
         i += 1
