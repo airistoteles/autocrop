@@ -5,7 +5,7 @@ Should work on Windows, Linux and Mac.
 ## Install requirements
 
 ```bash
-pip install python-opencv
+pip install opencv-python
 pip install numpy
 ```
 
