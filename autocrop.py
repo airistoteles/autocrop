@@ -131,11 +131,14 @@ def autocrop(params):
     crop = params['crop']
     filename = params['filename']
     out_path = params['out_path']
+    black_bg = params['black']
 
     print(f"Opening: {filename}")
     name = get_name(filename) # only the part after the folder
     img = cv2.imread(filename)
-    
+    if black_bg: # invert the image if the background is black
+        img = invert(img)
+
     #add white background (in case one side is cropped right already, otherwise script would fail finding contours)
     img = cv2.copyMakeBorder(img,100,100,100,100, cv2.BORDER_CONSTANT,value=[255,255,255])
     im_h, im_w = img.shape[:2]
@@ -146,6 +149,8 @@ def autocrop(params):
     if found:
         print(f"Saveing to: {out_path}/{name}")
         try:
+            if black_bg:
+                img = ~img
             cv2.imwrite(f"{out_path}/{name}", img, [int(cv2.IMWRITE_JPEG_QUALITY), 100]) 
         except:
             None
@@ -165,6 +170,9 @@ def autocrop(params):
                 else:
                     out_f.write(buf)
 
+def invert(img):
+    return ~img
+
 def main():
     parser = argparse.ArgumentParser(description = "Crop/Rotate images automatically. Images should be single images on white background.")
     parser.add_argument("-i", metavar="INPUT_PATH", default=".",
@@ -177,6 +185,9 @@ def main():
     parser.add_argument("-c", metavar="CROP", type=int, default=15,
                         help="Standard extra crop. After crop/rotate often a small white border remains. \
                                 This removes this. If it cuts off too much of your image, adjust this.")
+    parser.add_argument("-b", "--black", action="store_true",
+                        help="Set this if you are using black/very dark (but uniform) backgrounds.")
+
     parser.add_argument("-p", metavar="THREADS", type=int, default=None,
                         help="Specify the number of threads to be used to process the images in parallel. \
                                 If not provided, the script will try to find the value itself \
@@ -192,6 +203,7 @@ def main():
     crop = args.c
     num_threads = args.p
     single = args.single
+    black = args.black
 
     if not os.path.exists(out_path):
         os.makedirs(out_path)
@@ -226,7 +238,8 @@ def main():
             params.append({"thresh": thresh, 
                             "crop": crop, 
                             "filename": f, 
-                            "out_path": out_path})
+                            "out_path": out_path,
+                            "black": black})
 
         with Pool(num_threads) as p:
             results = p.map(autocrop, params)
