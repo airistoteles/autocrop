@@ -34,9 +34,10 @@ This creates a new folder `crop` where all cropped and rotated images will be sa
 
 ## Troubleshooting
 
-### Problem:
-`ValueError: too many values to unpack (expected 2)`
-### Solution:
+### I have a black/dark background and using `-b` doesn't help:
+If you don't need the ability to rotate your images (i.e. if you're scanning slides), check out this cool project: https://github.com/smc8050/Dias_Autocrop
+
+### ValueError: too many values to unpack (expected 2):
 You likely use an outdated version of OpenCV. Make sure you have OpenCV 4.0 or higher installed. The version can be checked by executing the following code in the terminal.
 
 ```bash
